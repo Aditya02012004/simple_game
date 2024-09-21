@@ -7,7 +7,13 @@ pygame.init()
 # Set up display
 WIDTH, HEIGHT = 600, 400
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Enhanced Action Game")
+pygame.display.set_caption("Advanced Action Game")
+
+# Load sound and music
+pygame.mixer.music.load('background_music.mp3')  # Replace with your music file
+pygame.mixer.music.play(-1)  # Loop music
+collision_sound = pygame.mixer.Sound('collision.wav')  # Replace with your sound file
+powerup_sound = pygame.mixer.Sound('powerup.wav')  # Replace with your sound file
 
 # Define colors
 WHITE = (255, 255, 255)
@@ -46,7 +52,9 @@ boost_start_time = 0
 # Set up game variables
 clock = pygame.time.Clock()
 score = 0
+level = 1
 font = pygame.font.SysFont("monospace", 35)
+game_over = False
 
 # Function to create enemies
 def create_enemy():
@@ -57,7 +65,7 @@ def create_enemy():
 
 # Function to drop enemies
 def drop_enemies(enemy_list):
-    if len(enemy_list) < 10 and random.random() < 0.1:
+    if len(enemy_list) < 10 + level and random.random() < 0.1:
         enemy_list.append(create_enemy())
 
 # Function to draw enemies
@@ -67,13 +75,15 @@ def draw_enemies(enemy_list):
 
 # Function to update enemy positions
 def update_enemy_positions(enemy_list):
-    global score
+    global score, level
     for idx, enemy in enumerate(enemy_list):
         if enemy["y"] >= 0 and enemy["y"] < HEIGHT:
             enemy["y"] += enemy["speed"]
         else:
             enemy_list.pop(idx)
             score += 1
+            if score % 20 == 0:
+                level += 1
 
 # Function to detect collisions
 def collision_check(enemy_list, player_x, player_y):
@@ -112,6 +122,12 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_p:
+                game_over = False  # Restart game
+                player_lives = 3
+                score = 0
+                level = 1
 
     # Player movement
     keys = pygame.key.get_pressed()
@@ -131,10 +147,12 @@ while running:
     # Check for collisions with enemies
     current_time = pygame.time.get_ticks()
     if not is_invincible and collision_check(enemy_list, player_x, player_y):
+        collision_sound.play()
         player_lives -= 1
         is_invincible = True
         last_invincible_time = current_time
         if player_lives <= 0:
+            game_over = True
             running = False
 
     # Remove invincibility after some time
@@ -147,6 +165,7 @@ while running:
 
     # Check for collisions with power-ups
     if power_up_collision_check(power_up_list, player_x, player_y):
+        powerup_sound.play()
         player_speed_boost = True
         boost_start_time = current_time
         player_speed = 10
@@ -161,16 +180,24 @@ while running:
     draw_enemies(enemy_list)
     draw_power_ups(power_up_list)
 
-    # Display score and lives
+    # Display score, level, and lives
     score_text = font.render(f"Score: {score}", True, WHITE)
     lives_text = font.render(f"Lives: {player_lives}", True, WHITE)
+    level_text = font.render(f"Level: {level}", True, WHITE)
     screen.blit(score_text, (10, 10))
     screen.blit(lives_text, (10, 50))
+    screen.blit(level_text, (10, 90))
 
     pygame.display.flip()
 
     # Set frame rate
     clock.tick(30)
 
-# Quit pygame
-pygame.quit()
+# Game Over screen
+while game_over:
+    screen.fill(BLACK)
+    game_over_text = font.render("Game Over", True, WHITE)
+    final_score_text = font.render(f"Final Score: {score}", True, WHITE)
+    restart_text = font.render("Press P to Play Again", True, WHITE)
+    screen.blit(game_over_text, (WIDTH // 2 - 100, HEIGHT // 2 - 50))
+    screen.blit(final_score_text, (WIDTH // 2 - 100, HEIGHT // 2))
